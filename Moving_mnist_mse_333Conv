@@ -1,0 +1,1010 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue May  7 10:09:05 2019
+
+@author: mingkuan
+"""
+
+import keras.backend as K
+
+import numpy as np
+import pylab as plt
+from keras.utils import to_categorical
+from keras.models import Model
+from keras.layers import Input
+from keras.layers import LSTM
+from keras.layers import Dense
+from keras.layers.convolutional import Conv3D
+#from keras.layers.convolutional_recurrent import ConvLSTM2D
+from keras.layers.normalization import BatchNormalization
+from keras.models import load_model
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+import matplotlib.pyplot as plt
+from keras.utils import to_categorical
+from keras.regularizers import l2
+from keras.backend import clip 
+
+
+#moving = np.load('/home/mingkuan/Desktop/mnist_test_seq.npy')
+moving = np.load('/home/mingkuan/Desktop/arr_0.npy')
+moving.shape # (20, 10000, 64, 64)
+
+moving = moving.reshape((12000,14,64,64))
+
+
+dt = moving.reshape(12000,14,64,64,1)
+dt.shape
+
+del moving
+
+
+#  train set
+X1_moving = dt[:10000,:7,:,:,:]
+X1_moving.shape
+
+X2_moving = np.concatenate((np.zeros((10000,1,64,64,1)), dt[:10000,7:13,:,:,:]), axis=1) 
+X2_moving.shape
+
+y_moving = dt[:10000,7:14,:,:,:]
+y_moving.shape
+
+# self-defined cross entropy loss
+#def customLoss(yTrue,yPred):
+#    return K.sum(-yTrue*K.log(yPred) + (1-yTrue)*K.log(1-yPred))
+
+which = np.random.randint(12000)
+track = dt[which][:,:,:,:]
+
+
+for i in range(14):
+    fig = plt.figure(figsize=(10, 5))
+
+    ax = fig.add_subplot(121)
+
+    toplot = track[i, ::, ::, 0]
+    plt.imshow(toplot)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""  
+64*64 image
+1-layer stacked ConvLSTM2D Encoder-Decoder
+fake LSTM Encoder-Decoder
+"""
+def define_lstm_1_moving_1(n_filter, filter_size):
+    # define training encoder
+    encoder_inputs = Input(shape=(None, 64, 64, 1))
+    encoder_1 = ConvLSTM2D(filters = n_filter, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    encoder_outputs_1, encoder_state_h_1, encoder_state_c_1 = encoder_1(encoder_inputs)
+    # define training decoder
+    decoder_inputs = Input(shape=(None, 64, 64, 1))
+    decoder_1 = ConvLSTM2D(filters=n_filter, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_outputs_1, _, _ = decoder_1([decoder_inputs, encoder_state_h_1, encoder_state_c_1])
+    decoder_conv3d = Conv3D(filters=1, kernel_size=(1,1,16), padding='same', data_format='channels_last',
+                            kernel_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_outputs = decoder_conv3d(decoder_outputs_1)
+    #clip(dec oder_outputs, 0, 255)
+    
+#    denselayer = Dense(1, activation='softmax')
+#    decoder_outputs = denselayer(decoder_outputs)
+    
+    
+    model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    #print(model.summary(line_length=250))
+    
+    # define inference encoder
+    encoder_model = Model(encoder_inputs, [encoder_state_h_1, encoder_state_c_1])
+    
+    # define inference decoder
+    decoder_state_input_h_1 = Input(shape=(64,64,n_filter))
+    decoder_state_input_c_1 = Input(shape=(64,64,n_filter))
+
+    decoder_output_1, decoder_state_h_1_new, decoder_state_c_1_new = decoder_1([decoder_inputs, decoder_state_input_h_1, decoder_state_input_c_1])
+    decoder_output = decoder_conv3d(decoder_output_1)
+    #clip(decoder_output, 0, 255)
+    
+#    decoder_output = denselayer(decoder_output)
+    
+    decoder_model = Model([decoder_inputs , decoder_state_input_h_1 , decoder_state_input_c_1],
+                          [decoder_output, decoder_state_h_1_new, decoder_state_c_1_new])
+    
+    return model, encoder_model, decoder_model
+
+
+train_1_lstm_1, infenc_1_lstm_1, infdec_1_lstm_1 = define_lstm_1_moving_1(n_filter=128, filter_size=5)
+
+train_1_lstm_1.compile(loss='mse', optimizer='adam', metrics=['mae'])#, metrics=['mse'])
+
+#train_2_moving_1.fit([X1_moving,X2_moving], y_moving, batch_size=8, validation_split=0.3, epochs=1)
+es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=5)
+#cp = ModelCheckpoint('model-mnist-2layer.h5', verbose=1, save_best_only=True)
+history_1_lstm_1 = train_1_lstm_1.fit([X1_moving,X2_moving], y_moving, batch_size=8, 
+                                          validation_split=0.25, epochs=100, callbacks=[es])
+
+
+
+plt.plot(history_1_lstm_1.history['loss'][:])
+plt.plot(history_1_lstm_1.history['val_loss'][:])
+plt.title('1-layer convlstm model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+
+
+
+# generate target given source sequence
+def predict_sequence_lstm(infenc, infdec, source, n_steps):
+	# encode
+	state_h_1, state_c_1 = infenc.predict(source)  # source_dim = ()
+	#decoder_input = source[:,-1,:,:,:].reshape((1,1,64,64,1))
+	decoder_input = np.repeat(0,64*64).reshape((1,1,64,64,1))
+    #decoder_input = decoder_input.astype('float')
+	# 123
+	output = list()
+	for t in range(n_steps):
+		# predict next char
+		yhat, h_1, c_1 = infdec.predict([decoder_input, state_h_1, state_c_1])
+		# store prediction
+		output.append(yhat[0,0,:])
+		# update state
+		state_h_1, state_c_1 = h_1, c_1
+		# update target sequence
+		decoder_input = yhat
+	return np.array(output)
+
+
+"""
+Prediction on test set
+"""
+
+"""
+which = 421 # 9457
+
+which = np.random.randint(7500,10000)
+track = dt[which,:10,:,:,:]
+track.shape
+
+history = track[np.newaxis, ::, ::, ::, ::]
+history.shape
+
+prediction_lstm = predict_sequence_lstm(infenc_1_lstm_1, infdec_1_lstm_1, history, 10)
+
+prediction_lstm.shape
+
+track = np.concatenate((track, prediction_lstm), axis=0)
+track.shape
+
+track2 = dt[which][:20, :, :, ::] 
+track2.shape
+
+
+for i in range(20):
+    fig = plt.figure(figsize=(10, 5))
+
+    ax = fig.add_subplot(121)
+
+    if i >= 10:
+        ax.text(1, 3, 'Predictions !', fontsize=20, color='w')
+    else:
+        ax.text(1, 3, 'Initial trajectory', fontsize=20, color='w')
+
+    toplot = track[i, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(122)
+    plt.text(1, 3, 'Ground truth', fontsize=20, color='w')
+
+    toplot = track2[i, ::, ::, 0]
+    #if i >= 2:
+    #    toplot = dt[which][i, ::, ::, 0]
+        
+    plt.imshow(toplot)
+    plt.savefig('%i_animate.png' % (i + 1))
+"""
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""  
+64*64 image
+1-layer stacked ConvLSTM2D Encoder-Decoder
+"""
+def define_models_1_moving_1(n_filter, filter_size):
+    # define training encoder
+    encoder_inputs = Input(shape=(None, 64, 64, 1))
+    encoder_1 = ConvLSTM2D(filters = n_filter, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    encoder_outputs_1, encoder_state_h_1, encoder_state_c_1 = encoder_1(encoder_inputs)
+    # define training decoder
+    decoder_inputs = Input(shape=(None, 64, 64, 1))
+    decoder_1 = ConvLSTM2D(filters=n_filter, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_outputs_1, _, _ = decoder_1([decoder_inputs, encoder_state_h_1, encoder_state_c_1])
+    decoder_conv3d = Conv3D(filters=1, kernel_size=(1,1,64), padding='same', data_format='channels_last',
+                            kernel_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_outputs = decoder_conv3d(decoder_outputs_1)       
+    model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    
+    # define inference encoder
+    encoder_model = Model(encoder_inputs, [encoder_state_h_1, encoder_state_c_1])
+    
+    # define inference decoder
+    decoder_state_input_h_1 = Input(shape=(64,64,n_filter))
+    decoder_state_input_c_1 = Input(shape=(64,64,n_filter))
+    decoder_output_1, decoder_state_h_1_new, decoder_state_c_1_new = decoder_1([decoder_inputs, decoder_state_input_h_1, decoder_state_input_c_1])
+    decoder_output = decoder_conv3d(decoder_output_1)
+    decoder_model = Model([decoder_inputs , decoder_state_input_h_1 , decoder_state_input_c_1],
+                          [decoder_output, decoder_state_h_1_new, decoder_state_c_1_new]) 
+    return model, encoder_model, decoder_model
+
+
+train_1_moving_1, infenc_1_moving_1, infdec_1_moving_1 = define_models_1_moving_1(n_filter=128, filter_size=5)
+
+train_1_moving_1.compile(loss='mse', optimizer='adam', metrics=['mae'])#, metrics=['mse'])
+
+#train_2_moving_1.fit([X1_moving,X2_moving], y_moving, batch_size=8, validation_split=0.3, epochs=1)
+es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=5)
+#cp = ModelCheckpoint('model-mnist-2layer.h5', verbose=1, save_best_only=True)
+history_1_moving_1 = train_1_moving_1.fit([X1_moving,X2_moving], y_moving, batch_size=8, 
+                                          validation_split=0.25, epochs=100, callbacks=[es])
+
+
+
+plt.plot(history_1_moving_1.history['loss'][:])
+plt.plot(history_1_moving_1.history['val_loss'][:])
+plt.title('1-layer convlstm model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+
+
+
+# generate target given source sequence
+#def predict_sequence_1(infenc, infdec, source, n_steps):
+	# encode
+#	state_h_1, state_c_1 = infenc.predict(source)  # source_dim = ()
+	#decoder_input = source[:,-1,:,:,:].reshape((1,1,64,64,1))
+#    #decoder_input = decoder_input.astype('float')
+	# 123
+#	output = list()
+#	for t in range(n_steps):
+		# predict next char
+#		yhat, h_1, c_1 = infdec.predict([decoder_input, state_h_1, state_c_1])
+		# store prediction
+#		output.append(yhat[0,0,:])
+		# update state
+#		state_h_1, state_c_1 = h_1, c_1
+		# update target sequence
+#		decoder_input = yhat
+#	return np.array(output)
+
+
+
+"""
+Prediction on test set
+"""
+"""
+which = 421 # 9457
+
+which = np.random.randint(7500,10000)
+track = dt[which,:10,:,:,:]
+track.shape
+
+history = track[np.newaxis, ::, ::, ::, ::]
+history.shape
+
+prediction = predict_sequence_1(infenc_1_moving_1, infdec_1_moving_1, history, 10)
+
+prediction.shape
+
+track = np.concatenate((track, prediction), axis=0)
+track.shape
+
+track2 = dt[which][:20, :, :, ::] 
+track2.shape
+
+for i in range(20):
+    fig = plt.figure(figsize=(10, 5))
+
+    ax = fig.add_subplot(121)
+
+    if i >= 10:
+        ax.text(1, 3, 'Predictions !', fontsize=20, color='w')
+    else:
+        ax.text(1, 3, 'Initial trajectory', fontsize=20, color='w')
+
+    toplot = track[i, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(122)
+    plt.text(1, 3, 'Ground truth', fontsize=20, color='w')
+
+    toplot = track2[i, ::, ::, 0]
+    #if i >= 2:
+    #    toplot = dt[which][i, ::, ::, 0]
+        
+    plt.imshow(toplot)
+    plt.savefig('%i_animate.png' % (i + 1))
+"""
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""  
+64*64 image
+2-layer stacked ConvLSTM2D Encoder-Decoder
+"""
+
+def define_models_2_moving_1(n_filter, filter_size):
+    # define training encoder
+    encoder_inputs = Input(shape=(None, 64, 64, 1))
+    encoder_1 = ConvLSTM2D(filters = n_filter, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    encoder_2 = ConvLSTM2D(filters = n_filter, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    encoder_outputs_1, encoder_state_h_1, encoder_state_c_1 = encoder_1(encoder_inputs)
+    encoder_outputs_2, encoder_state_h_2, encoder_state_c_2 = encoder_2(encoder_outputs_1)
+    # define training decoder
+    decoder_inputs = Input(shape=(None, 64, 64, 1))
+    decoder_1 = ConvLSTM2D(filters=n_filter, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_2 = ConvLSTM2D(filters=n_filter, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_outputs_1, _, _ = decoder_1([decoder_inputs, encoder_state_h_1, encoder_state_c_1])
+    decoder_outputs_2, _, _ = decoder_2([decoder_outputs_1, encoder_state_h_2, encoder_state_c_2])
+    decoder_conv3d = Conv3D(filters=1, kernel_size=(1,1,64), padding='same', data_format='channels_last',
+                            kernel_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_outputs = decoder_conv3d(decoder_outputs_2)
+    #clip(dec oder_outputs, 0, 255)
+    
+#    denselayer = Dense(1, activation='softmax')
+#    decoder_outputs = denselayer(decoder_outputs)
+    
+    
+    model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    #print(model.summary(line_length=250))
+    
+    # define inference encoder
+    encoder_model = Model(encoder_inputs, [encoder_state_h_1, encoder_state_c_1, encoder_state_h_2, encoder_state_c_2])
+    
+    # define inference decoder
+    decoder_state_input_h_1 = Input(shape=(64,64,n_filter))
+    decoder_state_input_c_1 = Input(shape=(64,64,n_filter))
+    decoder_state_input_h_2 = Input(shape=(64,64,n_filter))
+    decoder_state_input_c_2 = Input(shape=(64,64,n_filter))
+    decoder_output_1, decoder_state_h_1_new, decoder_state_c_1_new = decoder_1([decoder_inputs, decoder_state_input_h_1, decoder_state_input_c_1])
+    decoder_output_2, decoder_state_h_2_new, decoder_state_c_2_new = decoder_2([decoder_output_1, decoder_state_input_h_2, decoder_state_input_c_2])
+    decoder_output = decoder_conv3d(decoder_output_2)
+    #clip(decoder_output, 0, 255)
+    
+#    decoder_output = denselayer(decoder_output)
+    
+    decoder_model = Model([decoder_inputs , decoder_state_input_h_1 , decoder_state_input_c_1, decoder_state_input_h_2 , decoder_state_input_c_2],
+                          [decoder_output, decoder_state_h_1_new, decoder_state_c_1_new, decoder_state_h_2_new, decoder_state_c_2_new])
+    
+    return model, encoder_model, decoder_model
+
+
+train_2_moving_1, infenc_2_moving_1, infdec_2_moving_1 = define_models_2_moving_1(n_filter=64, filter_size=5)
+
+train_2_moving_1.compile(loss='mse', optimizer='adam', metrics=['mae'])#, metrics=['mse'])
+
+#train_2_moving_1.fit([X1_moving,X2_moving], y_moving, batch_size=8, validation_split=0.3, epochs=1)
+es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=5)
+#cp = ModelCheckpoint('model-mnist-2layer.h5', verbose=1, save_best_only=True)
+history_2_moving_1 = train_2_moving_1.fit([X1_moving,X2_moving], y_moving, batch_size=8, 
+                                          validation_split=0.25, epochs=100, callbacks=[es])
+
+
+
+plt.plot(history_2_moving_1.history['loss'][:])
+plt.plot(history_2_moving_1.history['val_loss'][:])
+plt.title('2-layer convlstm model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+
+
+
+# generate target given source sequence
+def predict_sequence_2(infenc, infdec, source, n_steps):
+	# encode
+	state_h_1, state_c_1, state_h_2, state_c_2 = infenc.predict(source)  # source_dim = ()
+	#decoder_input = source[:,-1,:,:,:].reshape((1,1,64,64,1))
+	decoder_input = np.repeat(0,64*64).reshape((1,1,64,64,1))
+    #decoder_input = decoder_input.astype('float')
+	# 123
+	output = list()
+	for t in range(n_steps):
+		# predict next char
+		yhat, h_1, c_1, h_2, c_2 = infdec.predict([decoder_input, state_h_1, state_c_1, state_h_2, state_c_2])
+		# store prediction
+		output.append(yhat[0,0,:])
+		# update state
+		state_h_1, state_c_1, state_h_2, state_c_2 = h_1, c_1, h_2, c_2
+		# update target sequence
+		decoder_input = yhat
+	return np.array(output)
+
+
+"""
+Prediction on test set
+"""
+"""
+which = 421 # 9457
+
+which = np.random.randint(7500,10000)
+track = dt[which,:10,:,:,:]
+track.shape
+
+history = track[np.newaxis, ::, ::, ::, ::]
+history.shape
+
+prediction = predict_sequence_2(infenc_2_moving_1, infdec_2_moving_1, history, 10)
+
+prediction.shape
+
+track = np.concatenate((track, prediction), axis=0)
+track.shape
+
+track2 = dt[which][:20, :, :, ::] 
+track2.shape
+
+for i in range(20):
+    fig = plt.figure(figsize=(10, 5))
+
+    ax = fig.add_subplot(121)
+
+    if i >= 10:
+        ax.text(1, 3, 'Predictions !', fontsize=20, color='w')
+    else:
+        ax.text(1, 3, 'Initial trajectory', fontsize=20, color='w')
+
+    toplot = track[i, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(122)
+    plt.text(1, 3, 'Ground truth', fontsize=20, color='w')
+
+    toplot = track2[i, ::, ::, 0]
+    #if i >= 2:
+    #    toplot = dt[which][i, ::, ::, 0]
+        
+    plt.imshow(toplot)
+    plt.savefig('%i_animate.png' % (i + 1))
+"""
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
+3-layer stacked ConvLSTM2D Encoder-Decoder
+"""
+
+def define_models_3_moving(n_filter, filter_size):
+    # define training encoder
+    encoder_inputs = Input(shape=(None, 64, 64, 1))
+    encoder_1 = ConvLSTM2D(filters = n_filter, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    encoder_2 = ConvLSTM2D(filters = 32, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    encoder_3 = ConvLSTM2D(filters = 32, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    encoder_outputs_1, encoder_state_h_1, encoder_state_c_1 = encoder_1(encoder_inputs)
+    encoder_outputs_2, encoder_state_h_2, encoder_state_c_2 = encoder_2(encoder_outputs_1)
+    encoder_outputs_3, encoder_state_h_3, encoder_state_c_3 = encoder_3(encoder_outputs_2)
+    # define training decoder
+    decoder_inputs = Input(shape=(None, 64, 64, 1))
+    decoder_1 = ConvLSTM2D(filters=n_filter, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_2 = ConvLSTM2D(filters=32, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_3 = ConvLSTM2D(filters=32, kernel_size=filter_size, padding='same', return_sequences=True, return_state=True,
+                           kernel_regularizer=l2(0.0005), recurrent_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_outputs_1, _, _ = decoder_1([decoder_inputs, encoder_state_h_1, encoder_state_c_1])
+    decoder_outputs_2, _, _ = decoder_2([decoder_outputs_1, encoder_state_h_2, encoder_state_c_2])
+    decoder_outputs_3, _, _ = decoder_3([decoder_outputs_2, encoder_state_h_3, encoder_state_c_3])
+    decoder_conv3d = Conv3D(filters=1, kernel_size=(1,1,32), padding='same', data_format='channels_last',
+                            kernel_regularizer=l2(0.0005), bias_regularizer=l2(0.0005))
+    decoder_outputs = decoder_conv3d(decoder_outputs_3)
+    
+    model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    #print(model.summary(line_length=250))
+    
+    # define inference encoder
+    encoder_model = Model(encoder_inputs, 
+                          [encoder_state_h_1, encoder_state_c_1, encoder_state_h_2, encoder_state_c_2, encoder_state_h_3, encoder_state_c_3])
+    
+    # define inference decoder
+    decoder_state_input_h_1 = Input(shape=(64,64,n_filter))
+    decoder_state_input_c_1 = Input(shape=(64,64,n_filter))
+    decoder_state_input_h_2 = Input(shape=(64,64,32))
+    decoder_state_input_c_2 = Input(shape=(64,64,32))
+    decoder_state_input_h_3 = Input(shape=(64,64,32))
+    decoder_state_input_c_3 = Input(shape=(64,64,32))
+    decoder_output_1, decoder_state_h_1_new, decoder_state_c_1_new = decoder_1([decoder_inputs, decoder_state_input_h_1, decoder_state_input_c_1])
+    decoder_output_2, decoder_state_h_2_new, decoder_state_c_2_new = decoder_2([decoder_output_1, decoder_state_input_h_2, decoder_state_input_c_2])
+    decoder_output_3, decoder_state_h_3_new, decoder_state_c_3_new = decoder_3([decoder_output_2, decoder_state_input_h_3, decoder_state_input_c_3])
+    decoder_output = decoder_conv3d(decoder_output_3)
+    decoder_model = Model([decoder_inputs , decoder_state_input_h_1 , decoder_state_input_c_1, decoder_state_input_h_2 , decoder_state_input_c_2, 
+                           decoder_state_input_h_3 , decoder_state_input_c_3],
+                          [decoder_output, decoder_state_h_1_new, decoder_state_c_1_new, decoder_state_h_2_new, decoder_state_c_2_new, 
+                           decoder_state_h_3_new, decoder_state_c_3_new])
+    
+    return model, encoder_model, decoder_model
+
+
+train_3_moving, infenc_3_moving, infdec_3_moving = define_models_3_moving(n_filter=64, filter_size=5)
+
+train_3_moving.compile(loss='mse', optimizer='adam', metrics=['mae'])
+
+#train_3_moving.fit([X1_moving,X2_moving], y_moving, batch_size=8, validation_split=0.1, epochs=1)
+
+
+#train_2.fit([X1,X2], y, batch_size=32, epochs=300, validation_split=0.1)
+es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=5)
+history_3_moving = train_3_moving.fit([X1_moving, X2_moving], y_moving, batch_size=4, validation_split=0.25, epochs=100, callbacks=[es])
+
+
+plt.plot(history_3_moving.history['loss'])
+plt.plot(history_3_moving.history['val_loss'])
+plt.title('3-layer convlstm model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+
+
+
+# generate target given source sequence
+def predict_sequence_3(infenc, infdec, source, n_steps):
+	# encode
+	state_h_1, state_c_1, state_h_2, state_c_2, state_h_3, state_c_3 = infenc.predict(source)  # source_dim = ()
+#	decoder_input = source[:,-1,:,:,:].reshape((1,1,64,64,1))
+	decoder_input = np.repeat(0,64*64).reshape((1,1,64,64,1))
+	# collect predictions
+	output = list()
+	for t in range(n_steps):
+		# predict next char
+		yhat, h_1, c_1, h_2, c_2, h_3, c_3 = infdec.predict([decoder_input, state_h_1, state_c_1, state_h_2, state_c_2, state_h_3, state_c_3])
+		# store prediction
+		output.append(yhat[0,0,:])
+		# update state
+		state_h_1, state_c_1, state_h_2, state_c_2, state_h_3, state_c_3 = h_1, c_1, h_2, c_2, h_3, c_3
+		# update target sequence
+		decoder_input = yhat
+	return np.array(output)
+
+
+"""
+Prediction on test set,  (PRESENTATION!!!!!)
+"""
+
+which = 6837 #411, 553, 2346, 2703, 7311, 7637
+
+
+which = np.random.randint(10000)
+track = dt[which,:9,:,:,:]
+track.shape
+
+history = track[np.newaxis, ::, ::, ::, ::]
+history.shape
+
+prediction = predict_sequence_3(infenc_3_moving, infdec_3_moving, history, 5)
+
+prediction.shape
+
+track = np.concatenate((track, prediction), axis=0)
+track.shape
+
+track2 = dt[which][::, ::, ::, ::] 
+track2.shape
+
+fig = plt.figure(figsize=(10, 6))
+for i in range(5):
+    ax = fig.add_subplot(3,5,i+1)
+    toplot = track2[i+4, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(3,5,i+6)
+    toplot = track2[i+9, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(3,5,i+11)
+    toplot = prediction[i, ::, ::, 0]
+    plt.imshow(toplot)
+
+
+for i in range(14):
+    fig = plt.figure(figsize=(5, 5))
+
+    ax = fig.add_subplot(111)
+
+    toplot = track2[i, ::, ::, 0]
+    plt.imshow(toplot)
+        
+    plt.imshow(toplot)
+    #plt.savefig('3digit-%i.png' % (i + 1))
+ 
+
+
+
+
+
+
+
+
+"""
+Fake 1-layer convlstm by using 2-layer convlstm
+"""
+train_1_moving_1, infenc_1_moving_1, infdec_1_moving_1 = define_models_2_moving_1(n_filter=32, filter_size=5)
+
+train_1_moving_1.compile(loss='mse', optimizer='adam', metrics=['mae'])#, metrics=['mse'])
+
+#train_2_moving_1.fit([X1_moving,X2_moving], y_moving, batch_size=8, validation_split=0.3, epochs=1)
+es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=5)
+#cp = ModelCheckpoint('model-mnist-2layer.h5', verbose=1, save_best_only=True)
+history_1_moving_1 = train_1_moving_1.fit([X1_moving,X2_moving], y_moving, batch_size=8, 
+                                          validation_split=0.25, epochs=10, callbacks=[es])
+
+
+
+# generate target given source sequence
+def predict_sequence_1(infenc, infdec, source, n_steps):
+	# encode
+	state_h_1, state_c_1, state_h_2, state_c_2 = infenc.predict(source)  # source_dim = ()
+	#decoder_input = source[:,-1,:,:,:].reshape((1,1,64,64,1))
+	decoder_input = np.repeat(0,64*64).reshape((1,1,64,64,1))
+    #decoder_input = decoder_input.astype('float')
+	# 123
+	output = list()
+	for t in range(n_steps):
+		# predict next char
+		yhat, h_1, c_1, h_2, c_2 = infdec.predict([decoder_input, state_h_1, state_c_1, state_h_2, state_c_2])
+		# store prediction
+		output.append(yhat[0,0,:])
+		# update state
+		state_h_1, state_c_1, state_h_2, state_c_2 = h_1, c_1, h_2, c_2
+		# update target sequence
+		decoder_input = yhat
+	return np.array(output)
+
+
+
+
+
+
+
+
+
+
+
+"""
+Plot:  5327, 4959, 7421 (6837 #411, 2346)
+"""  
+which = np.random.randint(10000) 
+track = dt[which,:10,:,:,:]
+track.shape
+
+history = track[np.newaxis, ::, ::, ::, ::]
+history.shape
+
+prediction_lstm = predict_sequence_lstm(infenc_1_lstm_1, infdec_1_lstm_1, history, 10)
+prediction_1 = predict_sequence_1(infenc_1_moving_1, infdec_1_moving_1, history, 10)
+prediction_2 = predict_sequence_2(infenc_2_moving_1, infdec_2_moving_1, history, 10)
+prediction_3 = predict_sequence_3(infenc_3_moving, infdec_3_moving, history, 10)
+
+prediction_lstm.shape
+prediction_1.shape
+prediction_2.shape
+prediction_3.shape
+
+ground_truth = dt[which][10:20, :, :, ::] 
+ground_truth.shape 
+
+
+fig = plt.figure(figsize=(20,24))
+for i in range(7):
+    ax = fig.add_subplot(6,7,i+1)
+    toplot = track[i+3, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(6,7,i+8)
+    toplot = ground_truth[i, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(6,7,i+15)
+    toplot = prediction_lstm[i, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(6,7,i+22)
+    toplot = prediction_1[i, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(6,7,i+29)
+    toplot = prediction_2[i, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(6,7,i+36)
+    toplot = prediction_3[i, ::, ::, 0]
+    plt.imshow(toplot)
+
+plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/movingMNIST_19.pdf', bbox_inches='tight')
+#plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/movingMNIST_5.pdf', bbox_inches='tight')
+#plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/movingMNIST_4.pdf', bbox_inches='tight')
+#plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/movingMNIST_3.pdf', bbox_inches='tight')
+#plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/movingMNIST_2.pdf', bbox_inches='tight')
+#plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/movingMNIST_1.pdf', bbox_inches='tight')
+#plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/movingMNIST.pdf', bbox_inches='tight')
+
+
+
+
+
+
+
+
+
+
+"""
+try prediction on 3-digit moving MNIST
+"""
+moving_3_digit = np.load('/home/mingkuan/Desktop/arr_0.npy')
+moving_3_digit.shape # (20000, 1, 64, 64)
+moving_3_digit = moving_3_digit.reshape((5000,15,64,64,1))
+
+train_x1_3_digit = moving_3_digit[:,:8,:,:,:]
+train_x1_3_digit.shape
+
+train_y_3_digit = moving_3_digit[:,8:15,:,:,:]
+train_y_3_digit.shape
+
+train_x2_3_digit = np.concatenate((np.zeros((5000,1,64,64,1)), moving_3_digit[:,8:14,:,:,:]), axis=1) 
+train_x2_3_digit.shape
+
+train_3_digit_moving, infenc_3_digit_moving, infdec_3_digit_moving = define_models_3_moving(n_filter=64, filter_size=5)
+
+train_3_digit_moving.compile(loss='mse', optimizer='adam', metrics=['mae'])
+
+#train_3_moving.fit([X1_moving,X2_moving], y_moving, batch_size=8, validation_split=0.1, epochs=1)
+
+
+#train_2.fit([X1,X2], y, batch_size=32, epochs=300, validation_split=0.1)
+es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=5)
+history_3_digit_moving = train_3_digit_moving.fit([train_x1_3_digit, train_x2_3_digit], train_y_3_digit, batch_size=4,
+                                                  validation_split=0.25, epochs=100, callbacks=[es])
+
+
+plt.plot(history_3_digit_moving.history['loss'])
+plt.plot(history_3_digit_moving.history['val_loss'])
+plt.title('3-layer convlstm model on 3-digit moving MNIST loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'test'], loc='upper left')
+plt.show()
+
+
+
+# generate target given source sequence
+def predict_sequence_3(infenc, infdec, source, n_steps):
+	# encode
+	state_h_1, state_c_1, state_h_2, state_c_2, state_h_3, state_c_3 = infenc.predict(source)  # source_dim = ()
+#	decoder_input = source[:,-1,:,:,:].reshape((1,1,64,64,1))
+	decoder_input = np.repeat(0,64*64).reshape((1,1,64,64,1))
+	# collect predictions
+	output = list()
+	for t in range(n_steps):
+		# predict next char
+		yhat, h_1, c_1, h_2, c_2, h_3, c_3 = infdec.predict([decoder_input, state_h_1, state_c_1, state_h_2, state_c_2, state_h_3, state_c_3])
+		# store prediction
+		output.append(yhat[0,0,:])
+		# update state
+		state_h_1, state_c_1, state_h_2, state_c_2, state_h_3, state_c_3 = h_1, c_1, h_2, c_2, h_3, c_3
+		# update target sequence
+		decoder_input = yhat
+	return np.array(output)
+
+
+# which = 1870
+which = np.random.randint(5000)
+track = dt[which,:,:,:,:]
+track.shape
+
+history = track[np.newaxis, :10, ::, ::, ::]
+history.shape
+
+ground_truth = track[10:, ::, ::, ::]
+
+prediction = predict_sequence_3(infenc_3_digit_moving, infdec_3_digit_moving, history, 5)
+prediction.shape
+
+history = track[5:10,:,:,:]
+
+fig = plt.figure(figsize=(10, 6))
+for i in range(5):
+    ax = fig.add_subplot(3,5,i+1)
+    toplot = history[i, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(3,5,i+6)
+    toplot = ground_truth[i, ::, ::, 0]
+    plt.imshow(toplot)
+    
+    ax = fig.add_subplot(3,5,i+11)
+    toplot = prediction[i, ::, ::, 0]
+    plt.imshow(toplot)
+
+plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/movingMNIST_3_digit_5.pdf', bbox_inches='tight')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
+Test set performance
+'''
+prediction_lstm_list = np.zeros((4000,7,64,64,1))
+prediction_1_list = np.zeros((4000,7,64,64,1))
+prediction_2_list = np.zeros((4000,7,64,64,1))
+prediction_3_list = np.zeros((4000,7,64,64,1))
+
+
+for i in range(8000,12000):
+    track = dt[i,:7,:,:,:]
+
+    history = track[np.newaxis, ::, ::, ::, ::]
+
+    prediction_lstm = predict_sequence_lstm(infenc_1_lstm_1, infdec_1_lstm_1, history, 7)
+    prediction_1 = predict_sequence_1(infenc_1_moving_1, infdec_1_moving_1, history, 7)
+    prediction_2 = predict_sequence_2(infenc_2_moving_1, infdec_2_moving_1, history, 7)
+    prediction_3 = predict_sequence_3(infenc_3_moving, infdec_3_moving, history, 7)
+    
+    prediction_lstm_list[i-8000,:,:,:,:] = prediction_lstm
+    prediction_1_list[i-8000,:,:,:,:] = prediction_1
+    prediction_2_list[i-8000,:,:,:,:] = prediction_2
+    prediction_3_list[i-8000,:,:,:,:] = prediction_3
+    
+    
+prediction_lstm_list = np.array(prediction_lstm_list).reshape(4000,7,64,64)
+#np.save('prediction_lstm_list', prediction_lstm_list)
+prediction_1_list = np.array(prediction_1_list).reshape(4000,7,64,64)
+prediction_2_list = np.array(prediction_2_list).reshape(4000,7,64,64)
+prediction_3_list = np.array(prediction_3_list).reshape(4000,7,64,64)
+#np.save('prediction_lstm_list', prediction_3_list)
+
+
+ground_truth = dt[8000:,7:,:,:,0]
+ground_truth.shape
+#np.save('ground_truth', ground_truth)
+
+
+def mse(x,y):
+    sum_xy=0
+    for i in range(64):
+        for j in range(64):
+            sum_xy = sum_xy + (x[i,j]-y[i,j])**2
+    mse = sum_xy/(64*64)    
+    return mse
+
+
+def mae(x,y):
+    sum_xy=0
+    for i in range(64):
+        for j in range(64):
+            sum_xy = sum_xy + np.abs(x[i,j]-y[i,j])
+    mae = sum_xy/(64*64)    
+    return mae
+
+
+lstm_mse = 0
+lstm_mae = 0
+mse_1 = 0
+mae_1 = 0
+mse_2 = 0
+mae_2 = 0
+mse_3 = 0
+mae_3 = 0
+
+
+for i in range(4000): 
+    for j in range(7):
+        lstm_mse = lstm_mse + mse(prediction_lstm_list[i,j,:,:],ground_truth[i,j,:,:])
+        lstm_mae = lstm_mae + mae(prediction_lstm_list[i,j,:,:],ground_truth[i,j,:,:])
+        mse_1 = mse_1 + mse(prediction_1_list[i,j,:,:],ground_truth[i,j,:,:])
+        mae_1 = mae_1 + mae(prediction_1_list[i,j,:,:],ground_truth[i,j,:,:])
+        mse_2 = mse_2 + mse(prediction_2_list[i,j,:,:],ground_truth[i,j,:,:])
+        mae_2 = mae_2 + mae(prediction_2_list[i,j,:,:],ground_truth[i,j,:,:])
+        mse_3 = mse_3 + mse(prediction_3_list[i,j,:,:],ground_truth[i,j,:,:])
+        mae_3 = mae_3 + mae(prediction_3_list[i,j,:,:],ground_truth[i,j,:,:])
+
+
+lstm_mse/(4000*7)
+lstm_mae/(4000*7)
+mse_1/(4000*7)
+mae_1/(4000*7)
+mse_2/(4000*7)
+mae_2/(4000*7)
+mse_3/(4000*7)
+mae_3/(4000*7)
+
+
