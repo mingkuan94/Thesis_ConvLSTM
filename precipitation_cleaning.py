@@ -234,8 +234,14 @@ y_precipitation.shape
 del tem
 
 
+
+
+
+
+
+
 """
-1-layer
+1-layer ConvLSTM
 """
 def define_models_1_precipitation(n_filter, filter_size):
     # define training encoder
@@ -279,61 +285,6 @@ def define_models_1_precipitation(n_filter, filter_size):
     return model, encoder_model, decoder_model
 
 
-
-
-"""
-Fake lstm
-"""
-train_1_lstm, infenc_1_lstm, infdec_1_lstm = define_models_1_precipitation(n_filter=64, filter_size=3)
-
-train_1_lstm.compile(loss='mse', optimizer='adam', metrics=['mae'])#, metrics=['mse'])
-
-history_1_lstm = train_1_lstm.fit([X1_precipitation,X2_precipitation], y_precipitation, batch_size=8, 
-                                          validation_split=0.25, epochs=2)
-'''
-Prediction
-'''
-which = np.random.randint(5485)
-
-track = data[which,:8,:,:,:]
-track.shape
-
-history = track[np.newaxis, ::, ::, ::, ::]
-history.shape
-
-prediction = predict_sequence_1(infenc_1_lstm, infdec_1_lstm, history, 7)
-
-prediction.shape
-
-track = np.concatenate((track, prediction), axis=0)
-track.shape
-
-track2 = data[which][::, ::, ::, ::] 
-track2.shape
-
-
-for i in range(15):
-    fig = plt.figure(figsize=(5, 5))
-
-    toplot = track[i, ::, ::, 0]
-        
-    plt.imshow(toplot)
-    plt.savefig('precipitation_lstm_2743_-%i.png' % (i))
-
-
-
-
-
-
-
-
-
-
-
-
-"""
-1-layer ConvLSTM
-"""
 train_1_precipitation, infenc_1_precipitation, infdec_1_precipitation = define_models_1_precipitation(n_filter=64, filter_size=3)
 
 train_1_precipitation.compile(loss='mse', optimizer='adam', metrics=['mae'])#, metrics=['mse'])
@@ -380,70 +331,6 @@ def predict_sequence_1(infenc, infdec, source, n_steps):
 		# update target sequence
 		decoder_input = yhat
 	return np.array(output)   
- 
-    
-
-'''
-prediction
-'''
-
-
-which = np.random.randint(5485)
-
-track = data[which,:8,:,:,:]
-track.shape
-
-history = track[np.newaxis, ::, ::, ::, ::]
-history.shape
-
-prediction = predict_sequence_1(infenc_1_precipitation, infdec_1_precipitation, history, 7)
-
-prediction.shape
-
-track = np.concatenate((track, prediction), axis=0)
-track.shape
-
-track2 = data[which][::, ::, ::, ::] 
-track2.shape
-
-
-for i in range(15):
-    fig = plt.figure(figsize=(5, 5))
-
-    toplot = track2[i, ::, ::, 0]
-        
-    plt.imshow(toplot)
-    plt.savefig('precipitation_truth_2743_-%i.png' % (i))
-
-
-for i in range(15):
-    fig = plt.figure(figsize=(5, 5))
-
-    ax = fig.add_subplot(111)
-
-    toplot = track[i, ::, ::, 0]
-        
-    plt.imshow(toplot)
-    plt.savefig('precipitation_1layer_2743_-%i.png' % (i))
-
-
-
-fig = plt.figure(figsize=(10, 6))
-for i in range(7):
-    ax = fig.add_subplot(3,7,i+1)
-    toplot = track2[i+1, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(3,7,i+8)
-    toplot = track2[i+8, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(3,7,i+15)
-    toplot = prediction[i, ::, ::, 0]
-    plt.imshow(toplot)
-
-
-
 
 
 
@@ -547,63 +434,6 @@ def predict_sequence_2(infenc, infdec, source, n_steps):
 		# update target sequence
 		decoder_input = yhat
 	return np.array(output)
-
-
-
-'''
-prediction
-'''
-
-
-which = np.random.randint(5485*2)
-
-track = data[which,:8,:,:,:]
-track.shape
-
-history = track[np.newaxis, ::, ::, ::, ::]
-history.shape
-
-prediction = predict_sequence_2(infenc_2_precipitation, infdec_2_precipitation, history, 7)
-
-prediction.shape
-
-track = np.concatenate((track, prediction), axis=0)
-track.shape
-
-track2 = data[which][::, ::, ::, ::] 
-track2.shape
-
-
-for i in range(15):
-    fig = plt.figure(figsize=(5, 5))
-
-    ax = fig.add_subplot(111)
-
-    toplot = track[i, ::, ::, 0]
-        
-    plt.imshow(toplot)
-    plt.savefig('precipitation_2layer_2743_-%i.png' % (i))
-
-
-fig = plt.figure(figsize=(10, 6))
-for i in range(7):
-    ax = fig.add_subplot(3,7,i+1)
-    toplot = track2[i+1, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(3,7,i+8)
-    toplot = track2[i+8, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(3,7,i+15)
-    toplot = prediction[i, ::, ::, 0]
-    plt.imshow(toplot)
-
-
-
-
-
-
 
 
 
@@ -716,67 +546,6 @@ del X2_precipitation
 del y_precipitation
 
 
-'''
-prediction
-'''
-
-
-which = 20#1895 # 21, 225, 5267, 3630, 
-# 8028, 2171, 972, 2040, 6427, 3338
-
-which = np.random.randint(5485*2)
-
-track = data[which,:5,:,:,:]
-track.shape
-
-history = track[np.newaxis, ::, ::, ::, ::]
-history.shape
-
-prediction = predict_sequence_3(infenc_3_precipitation, infdec_3_precipitation, history, 10)
-
-prediction.shape
-
-track = np.concatenate((track, prediction), axis=0)
-track.shape
-
-track2 = data[which][::, ::, ::, ::] 
-track2.shape
-
-
-
-
-
-fig = plt.figure(figsize=(10, 6))
-for i in range(10):
-    ax = fig.add_subplot(3,10,i+1)
-    toplot = track2[i, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(3,10,i+11)
-    toplot = track2[i+5, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(3,10,i+21)
-    toplot = prediction[i, ::, ::, 0]
-    plt.imshow(toplot)
-
-
-for i in range(15):
-    fig = plt.figure(figsize=(5, 5))
-
-    ax = fig.add_subplot(111)
-
-    toplot = track[i, ::, ::, 0]
-        
-    plt.imshow(toplot)
-    plt.savefig('precipitation_3layer_2743_-%i.png' % (i))
-
-
-
-
-
-
-
 
 
 
@@ -878,69 +647,7 @@ history_lstm = train_lstm.fit([X1_lstm, X2_lstm],y_lstm, batch_size=8, validatio
 
 
 
-
-
-
-
 """
-Prediction on test set , 10 predict 5
-"""
-# which = 10, 3288
-"""
-which =  np.random.randint(5485)
-track = data[which,:10,:,:,:]
-track.shape
-
-history = track[np.newaxis, ::, ::, ::, ::]
-history.shape
-
-prediction_lstm = predict_sequence_1(infenc_1_lstm, infdec_1_lstm, history, 5)
-prediction_1 = predict_sequence_1(infenc_1_precipitation, infdec_1_precipitation, history, 5)
-prediction_2 = predict_sequence_2(infenc_2_precipitation, infdec_2_precipitation, history, 5)
-prediction_3 = predict_sequence_3(infenc_3_precipitation, infdec_3_precipitation, history, 5)
-prediction_1.shape
-
-track = data[which,:,:,:,:]
-track.shape
-
-
-fig = plt.figure(figsize=(11,14))
-for i in range(5):
-    ax = fig.add_subplot(7,5,i+1)
-    toplot = track[i, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(7,5,i+6)
-    toplot = track[i+5, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(7,5,i+11)
-    toplot = track[i+10, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(7,5,i+16)
-    toplot = prediction_lstm[i, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(7,5,i+21)
-    toplot = prediction_1[i, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(7,5,i+26)
-    toplot = prediction_2[i, ::, ::, 0]
-    plt.imshow(toplot)
-    
-    ax = fig.add_subplot(7,5,i+31)
-    toplot = prediction_3[i, ::, ::, 0]
-    plt.imshow(toplot)
-
-#plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/precipitation_4.pdf', bbox_inches='tight')
-
-
-
-
-
-
 8 predict 7
 """
 
@@ -990,8 +697,6 @@ for i in range(7):
     ax = fig.add_subplot(6,7,i+36)
     toplot = prediction_3[i, ::, ::, 0]
     plt.imshow(toplot)
-
-#plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/precipitation_7output.pdf', bbox_inches='tight')
 
 
 
@@ -1138,24 +843,7 @@ history_3 = np.load('history_3.npy')
 #history_1 = history_1.astype(int)
 #history_2 = history_2.astype(int)
 #history_3 = history_3.astype(int)
-                                  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                                
 
 np.seterr(divide='ignore', invalid='ignore')
 
@@ -1271,24 +959,6 @@ mae_lstm = [mean_cor_lstm_t1, mean_cor_lstm_t2, mean_cor_lstm_t3, mean_cor_lstm_
 mae_lstm
 
 
-
-cor_lstm = [0.8964, 0.8279, 0.7743, 0.7254, 0.6931]
-mse_lstm = [325.7047, 551.7955, 781.8535, 974.7883, 1139.3068]
-mae_lstm = [8.9844, 12.2250, 15.3140, 17.6506, 19.6739]
-
-cor_1 = [0.9004, 0.8479, 0.8075, 0.7745, 0.7605]
-mse_1 = [317.6280, 509.6701, 704.6673, 879.5682, 1031.4036]
-mae_1 = [8.7772, 11.5506, 14.1127, 16.1555, 17.9652]
-
-cor_2 = [0.9031, 0.8564, 0.8210, 0.7870, 0.7683]
-mse_2 = [301.1242, 503.1764, 669.7236, 834.9872, 970.3201]
-mae_2 = [8.6331, 11.3365, 13.3976, 15.3696, 16.8739]
-
-cor_3 = [0.91122, 0.8633, 0.8241, 0.7916, 0.7703]
-mse_3 = [285.7048, 491.7956, 651.8535, 804.7884, 959.3068]
-mae_3 = [8.2844, 11.0251, 13.1141, 15.0506, 16.6740]
-
-
 # libraries
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -1330,13 +1000,3 @@ plt.plot( 'x', 'y4', data=df3, marker='o', color='red', linewidth=2 ,linestyle='
 plt.xlabel('Time Steps')
 plt.ylabel('MAE')
 plt.legend()
-
-plt.savefig('/home/mingkuan/Dropbox/ucalgary-thesis-master/precipitation_timestep.pdf', bbox_inches='tight')
-
-
-
-
-
-
-
-
