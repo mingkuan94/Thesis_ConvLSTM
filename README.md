@@ -19,7 +19,7 @@ Inspired by LSTM neural networks which is good at capturing temporal relationshi
 |:--:|:--:|
 | *Inner structure of ConvLSTM* | *Stacked ConvLSTM encoder-forecaster network* |
 
-#### Prediction results from ConvLSTM:
+#### Prediction results from LSTM and ConvLSTM:
 
 | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/input_6427.gif" width="100" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/ground_truth_6427.gif" width="100" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/2layer_lstm_6427.gif" width="100" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/1layer_conv_6427.gif" width="100" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/2layer_conv_6427.gif" width="100" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/3layer_conv_6427.gif" width="100" /> |  
 |:--:|:--:|:--:|:--:|:--:|:--:|
