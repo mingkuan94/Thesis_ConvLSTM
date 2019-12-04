@@ -28,4 +28,10 @@ Inspired by LSTM neural networks which is good at capturing temporal relationshi
 |<img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/1layer_conv_6427.gif" width="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/2layer_conv_6427.gif" width="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/3layer_conv_6427.gif" width="200" /> | 
 | *1-layer ConvLSTM prediction* |  *2-layer ConvLSTM prediction* | *3-layer ConvLSTM prediction* |
 
-
+##### Decreasining case of radar echo maps: 
+| <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/input_8028.gif" width="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/ground_truth_8028.gif" width="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/2layer_lstm_8028.gif" width="200" /> |  
+|:--:|:--:|:--:|
+| *Input frames* | *Ground truth* | *2-layer LSTM prediction* | *1-layer ConvLSTM prediction* |  *2-layer ConvLSTM prediction* | *3-layer ConvLSTM prediction* |
+|<img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/1layer_conv_8028.gif" width="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/2layer_conv_8028.gif" width="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/3layer_conv_8028.gif" width="200" /> | 
+|:--:|:--:|:--:|
+| *1-layer ConvLSTM prediction* |  *2-layer ConvLSTM prediction* | *3-layer ConvLSTM prediction* |
