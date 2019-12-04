@@ -5,8 +5,7 @@ To incorporate the encoder-forecaster structure in ConvLSTM, one need delete lin
 
 #### Data Source: 
 CIKM AnalytiCup 2017 shenzhen meteorological bureau-alibaba challenge: Short-term
-quantitative precipitation forecasting. https://tianchi.aliyun.com/competition/
-entrance/231596/information. Accessed: 2019-02-01.
+quantitative precipitation forecasting. https://tianchi.aliyun.com/competition/entrance/231596/information.
 
 #### Traditional ROVER algorithm from weather nowcasting community can not handle the growing case in precipitation nowcasting (predcit future radar echo maps):
 
