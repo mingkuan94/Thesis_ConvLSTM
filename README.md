@@ -26,7 +26,6 @@ Inspired by LSTM neural networks which is good at capturing temporal relationshi
 |:--:|:--:|:--:|
 | *Input frames* | *Ground truth* | *2-layer LSTM prediction* | *1-layer ConvLSTM prediction* |  *2-layer ConvLSTM prediction* | *3-layer ConvLSTM prediction* |
 |<img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/1layer_conv_6427.gif" width="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/2layer_conv_6427.gif" width="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/3layer_conv_6427.gif" width="200" /> | 
-|:--:|:--:|:--:|
 | *1-layer ConvLSTM prediction* |  *2-layer ConvLSTM prediction* | *3-layer ConvLSTM prediction* |
 
 
