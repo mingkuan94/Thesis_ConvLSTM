@@ -43,7 +43,7 @@ Inspired by LSTM neural networks which is good at capturing temporal relationshi
 
 The ConvLSTM predicts the growing radar echo maps successfully since the convolution operation can capture the information on the edges of image via zero-paddin.
 
-#### Conclusion:
+#### Conclusions:
 1. ConvLSTM encoder-forecaster network breaks the limitation of classic radar echo extrapolation based method by predicting the decaying and growing radar echo maps successfully. 
 2. ConvLSTM outperforms FC-LSTM in capturing spatiotemporal correlation by adding convolutional operation in the input-to-state and state-to-state transitions.
 3. Deeper ConvLSTM encoder-forecaster network provides better forecasts.
