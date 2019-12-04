@@ -11,7 +11,9 @@ Traditional ROVER algorithm from weather nowcasting community can not handle the
 We may think of this problem from the machine learning perspective:
 
 Periodic observations taken from a dynamic system. Each radar echo map is a spatial $N_1\times N_2$ grid. Each pixel has an integer between 0 and 255 representing the rainfall intensity:
- <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/PrecipitationModel-1.jpg" width="700"  /> 
+ <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/PrecipitationModel-1.jpg" width="500"  />
+
+
 
 
 
