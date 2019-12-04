@@ -5,9 +5,11 @@ To incorporate the encoder-forecaster structure in ConvLSTM, one need delete lin
 | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/Input_5_frames.gif" width="200" height="200" /> | 
 |:--:| 
 | *Input frames* |
+
 | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/truth_15_frames.gif" width="200" height="200" /> | 
 |:--:| 
 | *Input frames* |
+
 | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/rover_15_frames.gif" width="200" height="200" /> | 
 |:--:| 
 | *ROVER prediction* |
