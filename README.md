@@ -12,9 +12,12 @@ To incorporate the encoder-forecaster structure in ConvLSTM, one need delete lin
 
 Periodic observations taken from a dynamic system. Each radar echo map is a spatial $ N_1 \times N_2 $ grid. Each pixel has an integer between 0 and 255 representing the rainfall intensity:
  <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/PrecipitationModel-1.jpg" width="500"  />
+ 
+Inspired by LSTM neural networks which is good at capturing temporal relationships, we add convolution operation to LSTM at each time step to build so-called ConvLSTM. For ConvLSTM, we can keep input in 3D dimension so that we do not lose the spatial relationships:
 
-
-
+| <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/conv_inner-1.jpg" width="400" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/ConvLSTM_Encoder_Forecaster-1.jpg" width="400"  /> |
+|:--:|:--:|
+| *Input frames* | *Ground truth* |
 
 
 
