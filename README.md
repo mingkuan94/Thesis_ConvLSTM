@@ -7,7 +7,8 @@ To incorporate the encoder-forecaster structure in ConvLSTM, one need delete lin
 CIKM AnalytiCup 2017 shenzhen meteorological bureau-alibaba challenge: Short-term
 quantitative precipitation forecasting. https://tianchi.aliyun.com/competition/entrance/231596/information.
 
-#### Traditional ROVER algorithm from weather nowcasting community can not handle the growing case in precipitation nowcasting (predcit future radar echo maps):
+#### Limitation in traditional precipitation nowcastin algorithms:
+Traditional ROVER algorithm from weather nowcasting community can not handle the growing case in precipitation nowcasting (predcit future radar echo maps). ROVER simply shifts the movements, thus fail to predict the growing precipitation from the edge on the radar echo maps
 
 | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/Input_5_frames.gif" width="200" height="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/truth_15_frames.gif" width="200" height="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/rover_15_frames.gif" width="200" height="200" /> |  
 |:--:|:--:|:--:| 
