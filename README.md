@@ -33,5 +33,13 @@ Inspired by LSTM neural networks which is good at capturing temporal relationshi
 |:--:|:--:|:--:|
 | *Input frames* | *Ground truth* | *2-layer LSTM prediction* | *1-layer ConvLSTM prediction* |  *2-layer ConvLSTM prediction* | *3-layer ConvLSTM prediction* |
 |<img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/1layer_conv_8028.gif" width="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/2layer_conv_8028.gif" width="200" /> | <img src="https://github.com/mingkuan94/Thesis_ConvLSTM/blob/master/gifs_and_plots/3layer_conv_8028.gif" width="200" /> | 
-|:--:|:--:|:--:|
 | *1-layer ConvLSTM prediction* |  *2-layer ConvLSTM prediction* | *3-layer ConvLSTM prediction* |
+
+The ConvLSTM predicts the growing radar echo maps successfully since the convolution operation can capture the information on the edges of image via zero-paddin.
+
+#### Conclusion:
+1. ConvLSTM encoder-forecaster network breaks the limitation of classic radar echo extrapolation based method by predicting the decaying and growing radar echo maps successfully. 
+2. ConvLSTM outperforms FC-LSTM in capturing spatiotemporal correlation by adding convolutional operation in the input-to-state and state-to-state transitions.
+3. Deeper ConvLSTM encoder-forecaster network provides better forecasts.
+4. ConvLSTM can also be applied into other spatiotemporal problems like action recognition and object tracking.
+5. The predicted images become more and more blurred as time step increases.
